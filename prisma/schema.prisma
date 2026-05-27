@@ -1,0 +1,75 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  properties        Property[]
+  sentInquiries     Inquiry[]  @relation("SentInquiries")
+  receivedInquiries Inquiry[]  @relation("ReceivedInquiries")
+
+  @@map("users")
+}
+
+model Property {
+  id           String   @id @default(uuid())
+  ownerId      String   @map("user_id")
+  title        String
+  description  String
+  price        Float
+  city         String
+  address      String
+  propertyType String   @map("property_type")
+  bedrooms     Int
+  bathrooms    Int
+  areaSqft     Int      @map("area_sqft")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ownerName User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  images    PropertyImage[]
+  inquiries Inquiry[]
+
+  @@index([city])
+  @@index([price])
+  @@index([propertyType])
+  @@index([ownerId])
+  @@map("properties")
+}
+
+model PropertyImage {
+  id         String @id @default(uuid())
+  propertyId String @map("property_id")
+  imageUrl   String @map("image_url")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_images")
+}
+
+model Inquiry {
+  id         String   @id @default(uuid())
+  propertyId String   @map("property_id")
+  senderId   String   @map("sender_id")
+  receiverId String   @map("receiver_id")
+  message    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  sender   User     @relation("SentInquiries", fields: [senderId], references: [id])
+  receiver User     @relation("ReceivedInquiries", fields: [receiverId], references: [id])
+
+  @@map("inquiries")
+}
