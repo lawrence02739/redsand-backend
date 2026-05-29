@@ -1,9 +1,9 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { asyncHandler, AppError } from '../utils/AppError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { createInquirySchema } from '../validators/inquiry.validator';
+import { createInquirySchema, inquiryQuerySchema } from '../validators/inquiry.validator';
 
 const prisma = new PrismaClient();
 
@@ -63,5 +63,63 @@ export const getSentInquiries = asyncHandler(async (req: AuthRequest, res: Respo
     orderBy: { createdAt: 'desc' },
   });
 
+
   res.json(ApiResponse.success(inquiries));
+});
+
+export const getAllMyInquiries = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.userId;
+  const query = inquiryQuerySchema.parse(req.query);
+  const { page, limit, search, type } = query;
+
+  const skip = (page - 1) * limit;
+
+  // Determine the relation conditions based on the 'type' filter
+  let userCondition;
+  if (type === 'sent') {
+    userCondition = { senderId: userId };
+  } else if (type === 'received') {
+    userCondition = { receiverId: userId };
+  } else {
+    userCondition = { OR: [{ senderId: userId }, { receiverId: userId }] };
+  }
+
+  const where: Prisma.InquiryWhereInput = {
+    AND: [
+      userCondition,
+      ...(search ? [{
+        OR: [
+          { message: { contains: search, mode: 'insensitive' as const } },
+          { property: { is: { title: { contains: search, mode: 'insensitive' as const } } } },
+          { sender: { is: { name: { contains: search, mode: 'insensitive' as const } } } },
+          { receiver: { is: { name: { contains: search, mode: 'insensitive' as const } } } },
+        ]
+      }] : []),
+    ]
+  };
+
+  const [inquiries, total] = await Promise.all([
+    prisma.inquiry.findMany({
+      where,
+      include: {
+        sender: { select: { id: true, name: true, email: true } },
+        receiver: { select: { id: true, name: true, email: true } },
+        property: { select: { id: true, title: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.inquiry.count({ where }),
+  ]);
+
+  res.json(ApiResponse.success({
+    inquiries,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  }, 'All my inquiries retrieved successfully'));
 });

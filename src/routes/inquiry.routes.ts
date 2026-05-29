@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { 
   createInquiry, 
   getReceivedInquiries, 
-  getSentInquiries 
+  getSentInquiries,
+  getAllMyInquiries
 } from '../controllers/inquiry.controller';
 import { protect } from '../middleware/auth.middleware';
 
@@ -68,5 +69,37 @@ router.get('/received', getReceivedInquiries);
  *         description: A list of inquiries
  */
 router.get('/sent', getSentInquiries);
+
+/**
+ * @swagger
+ * /api/inquiries/mine:
+ *   get:
+ *     summary: Get all inquiries (sent and received) by the authenticated user
+ *     tags: [Inquiries]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by message, property title, or person name
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: A paginated list of inquiries
+ */
+router.get('/mine', getAllMyInquiries);
 
 export default router;

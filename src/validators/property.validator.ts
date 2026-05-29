@@ -26,3 +26,15 @@ export const propertyQuerySchema = z.object({
   sortBy: z.enum(['price', 'createdAt']).default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
+
+export const myPropertyQuerySchema = z.object({
+  search: z.string().optional(),
+  page: z.coerce.number().default(1),
+  limit: z.coerce.number().default(10),
+  minPrice: z.coerce.number().optional(),
+  maxPrice: z.coerce.number().optional(),
+  propertyType: z.enum(['Apartment', 'House', 'Villa', 'Condo']).optional(),
+  bedrooms: z.coerce.number().optional(),
+  bathrooms: z.coerce.number().optional(),
+  areaSqft: z.coerce.number().optional(),
+});

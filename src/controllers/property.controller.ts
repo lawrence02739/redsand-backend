@@ -6,7 +6,8 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import {
   createPropertySchema,
   updatePropertySchema,
-  propertyQuerySchema
+  propertyQuerySchema,
+  myPropertyQuerySchema
 } from '../validators/property.validator';
 
 const prisma = new PrismaClient();
@@ -72,13 +73,51 @@ export const getProperty = asyncHandler(async (req: Request, res: Response) => {
 
 export const getMyProperties = asyncHandler(async (req: AuthRequest, res: Response) => {
   const ownerId = req.user!.userId;
-  const properties = await prisma.property.findMany({
-    where: { ownerId },
-    include: { images: true, ownerName: { select: { id: true, name: true, email: true } } },
-    orderBy: { createdAt: 'desc' },
-  });
+  const query = myPropertyQuerySchema.parse(req.query);
+  const { page, limit, search, minPrice, maxPrice, propertyType, bedrooms, bathrooms, areaSqft } = query;
 
-  res.json(ApiResponse.success(properties.map(formatProperty), 'My properties retrieved successfully'));
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.PropertyWhereInput = {
+    ownerId,
+    ...(propertyType && { propertyType: { equals: propertyType } }),
+    ...(bedrooms !== undefined && { bedrooms: { gte: bedrooms } }),
+    ...(bathrooms !== undefined && { bathrooms: { gte: bathrooms } }),
+    ...(areaSqft !== undefined && { areaSqft: { gte: areaSqft } }),
+    ...((minPrice || maxPrice) && {
+      price: {
+        ...(minPrice && { gte: minPrice }),
+        ...(maxPrice && { lte: maxPrice }),
+      },
+    }),
+    ...(search && {
+      OR: [
+        { title: { contains: search, mode: 'insensitive' } },
+        { city: { contains: search, mode: 'insensitive' } },
+      ],
+    }),
+  };
+
+  const [properties, total] = await Promise.all([
+    prisma.property.findMany({
+      where,
+      include: { images: true, ownerName: { select: { id: true, name: true, email: true } } },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.property.count({ where }),
+  ]);
+
+  res.json(ApiResponse.success({
+    properties: properties.map(formatProperty),
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  }, 'My properties retrieved successfully'));
 });
 
 export const createProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
