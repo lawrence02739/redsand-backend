@@ -5,9 +5,11 @@ import {
   getMyProperties,
   createProperty, 
   updateProperty, 
-  deleteProperty 
+  deleteProperty,
+  uploadImages
 } from '../controllers/property.controller';
 import { protect } from '../middleware/auth.middleware';
+import { upload } from '../middleware/upload.middleware';
 
 const router = Router();
 
@@ -152,6 +154,46 @@ router.get('/:id', getProperty);
  *         description: Property created successfully
  */
 router.post('/', protect, createProperty);
+
+/**
+ * @swagger
+ * /api/properties/upload-images:
+ *   post:
+ *     summary: Upload multiple images for a property
+ *     tags: [Properties]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Max 5 images, 5MB each
+ *     responses:
+ *       200:
+ *         description: Images uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 message:
+ *                   type: string
+ */
+router.post('/upload-images', protect, upload.array('images', 5), uploadImages);
 
 /**
  * @swagger

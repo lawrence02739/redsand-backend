@@ -10,7 +10,7 @@ export const createPropertySchema = z.object({
   bedrooms: z.number().int().min(0),
   bathrooms: z.number().int().min(0),
   areaSqft: z.number().positive('Area must be positive'),
-  images: z.array(z.string().url('Invalid image URL')).optional(),
+  images: z.array(z.string()).optional(),
 });
 
 export const updatePropertySchema = createPropertySchema.partial();

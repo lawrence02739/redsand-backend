@@ -11,6 +11,11 @@ import {
 
 const prisma = new PrismaClient();
 
+const formatProperty = (property: any) => ({
+  ...property,
+  images: property.images?.map((img: any) => img.imageUrl) || [],
+});
+
 export const getProperties = asyncHandler(async (req: Request, res: Response) => {
   const query = propertyQuerySchema.parse(req.query);
   const { city, minPrice, maxPrice, propertyType, bedrooms, page, limit, sortBy, sortOrder } = query;
@@ -41,7 +46,7 @@ export const getProperties = asyncHandler(async (req: Request, res: Response) =>
   ]);
 
   res.json(ApiResponse.success({
-    properties,
+    properties: properties.map(formatProperty),
     pagination: {
       total,
       page,
@@ -62,7 +67,7 @@ export const getProperty = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError('Property not found', 404);
   }
 
-  res.json(ApiResponse.success(property, 'Property retrieved successfully'));
+  res.json(ApiResponse.success(formatProperty(property), 'Property retrieved successfully'));
 });
 
 export const getMyProperties = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -73,7 +78,7 @@ export const getMyProperties = asyncHandler(async (req: AuthRequest, res: Respon
     orderBy: { createdAt: 'desc' },
   });
 
-  res.json(ApiResponse.success(properties, 'My properties retrieved successfully'));
+  res.json(ApiResponse.success(properties.map(formatProperty), 'My properties retrieved successfully'));
 });
 
 export const createProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -82,18 +87,23 @@ export const createProperty = asyncHandler(async (req: AuthRequest, res: Respons
 
   const { images, ...propertyData } = validatedData;
 
+  let imageUrls: string[] = [];
+  if (images && images.length > 0) {
+    imageUrls = images;
+  }
+
   const property = await prisma.property.create({
     data: {
       ...propertyData,
       ownerId,
       images: {
-        create: images?.map((url) => ({ imageUrl: url })) || [],
+        create: imageUrls.map((url) => ({ imageUrl: url })),
       },
     },
     include: { images: true },
   });
 
-  res.status(201).json(ApiResponse.success(property, 'Property created successfully'));
+  res.status(201).json(ApiResponse.success(formatProperty(property), 'Property created successfully'));
 });
 
 export const updateProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -110,21 +120,26 @@ export const updateProperty = asyncHandler(async (req: AuthRequest, res: Respons
   const validatedData = updatePropertySchema.parse(req.body);
   const { images, ...propertyData } = validatedData;
 
+  let imageUrls: string[] | undefined;
+  if (images !== undefined) {
+    imageUrls = images;
+  }
+
   const updatedProperty = await prisma.property.update({
     where: { id: id as string },
     data: {
       ...propertyData,
-      ...(images && {
+      ...(imageUrls && {
         images: {
           deleteMany: {},
-          create: images.map((url) => ({ imageUrl: url })),
+          create: imageUrls.map((url) => ({ imageUrl: url })),
         },
       }),
     },
     include: { images: true },
   });
 
-  res.json(ApiResponse.success(updatedProperty, 'Property updated successfully'));
+  res.json(ApiResponse.success(formatProperty(updatedProperty), 'Property updated successfully'));
 });
 
 export const deleteProperty = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -144,3 +159,18 @@ export const deleteProperty = asyncHandler(async (req: AuthRequest, res: Respons
 
   res.json(ApiResponse.success(null, 'Property deleted successfully'));
 });
+
+export const uploadImages = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const files = req.files as Express.Multer.File[];
+  if (!files || files.length === 0) {
+    throw new AppError('No images uploaded', 400);
+  }
+
+  // Construct static URLs for the uploaded files for demo
+  const count = files.length;
+  const staticUrl = 'https://tse3.mm.bing.net/th/id/OIP.Rd52_nQg_kZopACpmNvAYQHaEK?rs=1&pid=ImgDetMain&o=7&rm=3';
+  const responseData = Array(count).fill(staticUrl);
+
+  res.status(200).json(ApiResponse.success(responseData, 'Images uploaded successfully'));
+});
+

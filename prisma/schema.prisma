@@ -73,3 +73,14 @@ model Inquiry {
 
   @@map("inquiries")
 }
+
+model File {
+  id        String   @id @default(uuid())
+  filename  String
+  path      String
+  size      Int
+  mimetype  String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("files")
+}
